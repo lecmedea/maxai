@@ -19,6 +19,33 @@ const CATEGORY = {
 };
 const TAB = { create: 'Снять', edit: 'Поправить', motion: 'Движение', templates: 'Шаблоны' };
 const FILM_KEY = 'maxai.film';
+const NAME_KEY = 'maxai.name';
+const FAV_KEY = 'maxai.fav';
+const TEXT_IDS = new Set(['edit-text', 'meme', 'dub', 'music']);
+const PAGES = new Set(['profile', 'favorites', 'text', 'trends', 'school', 'knowledge']);
+const MENU = [
+  ['profile', 'Профиль', 'Имя на этом устройстве'],
+  ['favorites', 'Избранное', 'Отмеченные инструменты'],
+  ['text', 'Текстовые ИИ', 'Слова, подписи и черновик'],
+  ['studio/image', 'Генерация Изображений', 'Кадр по описанию'],
+  ['studio/video', 'Генерация Видео', 'Ролик по кадру'],
+  ['studio/audio', 'Генерация Аудио', 'Звук и музыка'],
+  ['trends', 'Тренды', 'С чего начать в каталоге'],
+  ['school', 'Школа ИИ', 'Короткие уроки'],
+  ['knowledge', 'База знаний', 'Что делает каждый раздел'],
+];
+const ICONS = {
+  profile: 'M6 2h4v3H6zM4 6h8v2H4zM5 9h6v5H5z',
+  favorites: 'M8 1l2 4h4l-3 3 1 5-4-2-4 2 1-5-3-3h4z',
+  text: 'M2 3h12v2H2zM2 7h12v2H2zM2 11h8v2H2z',
+  image: 'M2 3h12v10H2zM4 11l2-3 2 2 2-2 2 3',
+  video: 'M2 4h8v8H2zM11 6l3-2v8l-3-2z',
+  audio: 'M3 8h2v5H3zM7 4h2v9H7zM11 6h2v7h-2z',
+  trends: 'M2 12l4-4 2 2 5-6M10 4h4v4',
+  school: 'M2 6l6-3 6 3-6 3zM4 8v3l4 2 4-2V8',
+  knowledge: 'M2 2h5v12H2zM9 2h5v12H9z',
+};
+let sectionReturn = '#/';
 const byId = new Map(catalog.apps.map((app) => [app.id, app]));
 const root = document.querySelector('#app');
 let query = '';
@@ -37,13 +64,47 @@ function route() {
   if (head === 'studio' && STUDIO[id]) return { name: 'studio', studio: id };
   if (head === 'app' && byId.has(id)) return { name: 'app', app: byId.get(id) };
   if (head === 'film') return { name: 'film' };
+  if (PAGES.has(head)) return { name: head };
   return { name: 'home' };
 }
 function go(hash) { location.hash = hash; }
+function openApp(id, back) { sectionReturn = back; go(`#/app/${id}`); }
 function goUp() {
   const current = route();
-  if (current.name === 'app') go(`#/studio/${current.app.studio}`);
+  if (current.name === 'app') go(sectionReturn || `#/studio/${current.app.studio}`);
   else if (current.name !== 'home') go('#/');
+}
+function readList(key) {
+  try { const value = JSON.parse(localStorage.getItem(key)); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+}
+function pixelIcon(kind) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('class', 'pixel');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', ICONS[kind] || ICONS.knowledge);
+  svg.append(path);
+  return svg;
+}
+function menuRow(hash, title, about, icon) {
+  const button = el('button', 'menu-row');
+  button.type = 'button';
+  const text = el('span');
+  const name = el('b');
+  name.textContent = title;
+  const line = el('small');
+  line.textContent = about;
+  text.append(name, line);
+  button.append(pixelIcon(icon), text);
+  const back = sectionReturn;
+  button.addEventListener('click', () => {
+    query = '';
+    if (hash.startsWith('app/')) openApp(hash.slice(4), back);
+    else go(`#/${hash}`);
+  });
+  return button;
 }
 function maxApp() {
   const bridge = window.WebApp;
@@ -106,12 +167,20 @@ function header() {
     back.tabIndex = -1;
   }
   back.addEventListener('click', goUp);
-  const title = el('div');
+  const title = el('div', 'brand');
   const mark = el('div', 'mark');
   mark.setAttribute('aria-hidden', 'true');
+  const words = el('div', 'brand-copy');
   const heading = el('h1');
-  heading.textContent = 'maxAI';
-  title.append(mark, heading);
+  const max = el('span', 'max');
+  max.textContent = 'max';
+  const ai = el('span', 'ai');
+  ai.textContent = 'AI';
+  heading.append(max, ai);
+  const tag = el('p', 'tag');
+  tag.textContent = 'ИИ-студия прямо в MAX';
+  words.append(heading, tag);
+  title.append(mark, words);
   const film = el('button', 'icon');
   film.type = 'button';
   film.textContent = '▣';
@@ -147,7 +216,7 @@ function toolButton(app) {
   const line = el('small');
   line.textContent = app.tagline || app.summary;
   button.append(line);
-  button.addEventListener('click', () => go(`#/app/${app.id}`));
+  button.addEventListener('click', () => openApp(app.id, sectionReturn || `#/studio/${app.studio}`));
   return button;
 }
 function listNodes() {
@@ -176,40 +245,10 @@ function listNodes() {
 }
 function homeMain() {
   const stage = el('div', 'stage');
-  const hero = el('section', 'hero');
-  const photo = el('img');
-  photo.src = PLATE.image;
-  photo.alt = '';
-  const scan = el('div', 'scan');
-  const copy = el('p');
-  const lead = el('strong');
-  lead.textContent = 'maxAI';
-  copy.append(lead, document.createTextNode(` · ${catalog.apps.length} инструментов из каталога Freefield. Сборка на экране демонстрационная: модель подключим отдельно.`));
-  hero.append(photo, scan, copy);
-  const tiles = el('div', 'stack');
-  for (const id of Object.keys(STUDIO)) {
-    const button = el('button', 'tile');
-    button.type = 'button';
-    const photoTile = el('img');
-    photoTile.src = PLATE[id];
-    photoTile.alt = '';
-    const text = el('span');
-    const name = el('b');
-    name.textContent = STUDIO[id][0];
-    const about = el('small');
-    about.textContent = STUDIO[id][1];
-    text.append(name, about);
-    const count = el('span', 'count');
-    count.textContent = String(catalog.apps.filter((app) => app.studio === id).length);
-    button.append(photoTile, text, count);
-    button.addEventListener('click', () => { query = ''; go(`#/studio/${id}`); });
-    tiles.append(button);
-  }
-  stage.append(hero, searchField(), tiles);
-  const results = el('div');
-  results.id = 'results';
-  results.append(...listNodes());
-  stage.append(results);
+  const menu = el('nav', 'menu');
+  menu.setAttribute('aria-label', 'Главное меню');
+  const icons = { profile: 'profile', favorites: 'favorites', text: 'text', 'studio/image': 'image', 'studio/video': 'video', 'studio/audio': 'audio', trends: 'trends', school: 'school', knowledge: 'knowledge' };
+  for (const [hash, title, about] of MENU) menu.append(menuRow(hash, title, about, icons[hash]));
   const foot = el('p', 'foot');
   foot.append(document.createTextNode('Каталог: '));
   const link = el('a');
@@ -223,11 +262,125 @@ function homeMain() {
       bridge.openLink(link.href);
     }
   });
-  foot.append(link, document.createTextNode(', MIT, © 2026 Sammir Femat. Эта страница модель не запускает.'));
-  stage.append(foot);
+  foot.append(link, document.createTextNode(`, MIT, © 2026 Sammir Femat. ${catalog.apps.length} инструментов. Модель на этом экране не подключена.`));
+  stage.append(menu, foot);
   return stage;
 }
+function pageStage(title, node) {
+  const stage = el('div', 'stage');
+  const heading = el('h2');
+  heading.textContent = title;
+  stage.append(heading, node);
+  return stage;
+}
+function profileMain() {
+  const box = el('form', 'note');
+  const lead = el('p');
+  lead.textContent = 'Имя хранится только на этом устройстве. Облачного профиля нет.';
+  const label = el('label', 'field');
+  label.textContent = 'Как к вам обращаться';
+  const input = el('input');
+  input.type = 'text';
+  input.maxLength = 40;
+  input.value = localStorage.getItem(NAME_KEY) || '';
+  label.append(input);
+  const save = el('button', 'submit');
+  save.type = 'submit';
+  save.textContent = 'Сохранить';
+  const status = el('p', 'warn');
+  box.append(lead, label, save, status);
+  box.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const name = input.value.trim();
+    if (name) localStorage.setItem(NAME_KEY, name);
+    else localStorage.removeItem(NAME_KEY);
+    status.textContent = name ? `Сохранено: ${name}` : 'Имя очищено';
+  });
+  return pageStage('Профиль', box);
+}
+function favoritesMain() {
+  sectionReturn = '#/favorites';
+  const box = el('div', 'menu');
+  const ids = readList(FAV_KEY).filter((id) => byId.has(id));
+  if (!ids.length) {
+    const empty = el('p');
+    empty.textContent = 'Пока пусто. Откройте инструмент и нажмите «В избранное».';
+    box.append(empty);
+  }
+  for (const id of ids) {
+    const app = byId.get(id);
+    box.append(menuRow(`app/${id}`, app.name, app.tagline || app.summary, app.studio === 'video' ? 'video' : app.studio === 'audio' ? 'audio' : 'image'));
+  }
+  return pageStage('Избранное', box);
+}
+function textMain() {
+  const box = el('div');
+  const lead = el('p', 'note');
+  lead.textContent = 'Отдельная текстовая модель здесь не подключена. Ниже инструменты каталога, где вы задаёте слова, и черновик, который остаётся на устройстве.';
+  const draft = el('label', 'field');
+  draft.textContent = 'Черновик';
+  const area = el('textarea');
+  area.rows = 4;
+  area.value = localStorage.getItem('maxai.draft') || '';
+  area.addEventListener('input', () => { try { localStorage.setItem('maxai.draft', area.value); } catch { /* private mode */ } });
+  draft.append(area);
+  const list = el('div', 'menu');
+  sectionReturn = '#/text';
+  for (const id of TEXT_IDS) {
+    const app = byId.get(id);
+    if (app) list.append(menuRow(`app/${id}`, app.name, app.tagline || app.summary, 'text'));
+  }
+  box.append(lead, draft, list);
+  return pageStage('Текстовые ИИ', box);
+}
+function trendsMain() {
+  const box = el('div', 'menu');
+  sectionReturn = '#/trends';
+  for (const id of catalog.start || []) {
+    const app = byId.get(id);
+    if (app) box.append(menuRow(`app/${id}`, app.name, app.tagline || app.summary, 'trends'));
+  }
+  return pageStage('Тренды', box);
+}
+function schoolMain() {
+  const box = el('div', 'note');
+  const lessons = [
+    ['Кадр', 'Генерация изображений берёт описание и показывает демонстрационный кадр. Модель к этой сборке не подключена.'],
+    ['Ролик', 'Генерация видео продолжает кадр. Сначала соберите картинку, потом откройте видеоинструмент.'],
+    ['Звук', 'Генерация аудио добавляет музыку или эффект к сцене. Текст песни можно набросать в «Текстовые ИИ».'],
+    ['Фильтр', 'Перед публикацией в каналы слова и домены из ограничений вырезают рекламу. Здесь, в студии, этот фильтр не работает.'],
+  ];
+  for (const [title, text] of lessons) {
+    const line = el('p');
+    const name = el('b');
+    name.textContent = `${title}. `;
+    line.append(name, document.createTextNode(text));
+    box.append(line);
+  }
+  return pageStage('Школа ИИ', box);
+}
+function knowledgeMain() {
+  const box = el('div', 'note');
+  const lines = [
+    'Профиль хранит имя только на этом устройстве.',
+    'Избранное собирает инструменты, которые вы отметили.',
+    'Текстовые ИИ — черновик и инструменты, где нужны слова.',
+    'Генерация изображений открывает каталог кадров.',
+    'Генерация видео открывает каталог роликов.',
+    'Генерация аудио открывает каталог звука.',
+    'Тренды показывает стартовый список каталога Freefield.',
+    'Школа ИИ объясняет, что делает каждая студия.',
+    'База знаний — эта страница.',
+  ];
+  for (const text of lines) {
+    const line = el('p');
+    line.textContent = text;
+    box.append(line);
+  }
+  return pageStage('База знаний', box);
+}
 function studioMain() {
+  sectionReturn = `#/studio/${route().studio}`;
   const stage = el('div', 'stage');
   const title = el('h2');
   title.textContent = STUDIO[route().studio][0];
@@ -343,7 +496,17 @@ function appMain(app) {
     chip.textContent = 'Черновик';
     chips.append(chip);
   }
-  stage.append(heading, lead, chips);
+  const star = el('button', 'ghost');
+  star.type = 'button';
+  const favs = () => readList(FAV_KEY);
+  const marked = () => favs().includes(app.id);
+  star.textContent = marked() ? 'В избранном' : 'В избранное';
+  star.addEventListener('click', () => {
+    const next = marked() ? favs().filter((id) => id !== app.id) : [app.id, ...favs().filter((id) => id !== app.id)].slice(0, 40);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+    star.textContent = marked() ? 'В избранном' : 'В избранное';
+  });
+  stage.append(heading, lead, chips, star);
   if (app.tagline && app.summary) {
     const summary = el('p');
     summary.textContent = app.summary;
@@ -450,19 +613,13 @@ function filmMain() {
 }
 function dockNav() {
   const current = route();
-  if (current.name === 'app') return null;
+  if (current.name === 'home' || current.name === 'app') return null;
   const nav = el('nav', 'dock nav');
   const home = el('button');
   home.type = 'button';
-  home.textContent = 'Мастерская';
-  if (current.name === 'home' || current.name === 'studio') home.setAttribute('aria-current', 'page');
+  home.textContent = 'Меню';
   home.addEventListener('click', () => go('#/'));
-  const film = el('button');
-  film.type = 'button';
-  film.textContent = 'Плёнка';
-  if (current.name === 'film') film.setAttribute('aria-current', 'page');
-  film.addEventListener('click', () => go('#/film'));
-  nav.append(home, film);
+  nav.append(home);
   return nav;
 }
 function paint() {
@@ -470,9 +627,11 @@ function paint() {
   for (const url of previews) URL.revokeObjectURL(url);
   previews = [];
   const current = route();
+  const screens = { profile: profileMain, favorites: favoritesMain, text: textMain, trends: trendsMain, school: schoolMain, knowledge: knowledgeMain };
   const main = current.name === 'app' ? appMain(current.app)
     : current.name === 'studio' ? studioMain()
     : current.name === 'film' ? filmMain()
+    : screens[current.name] ? screens[current.name]()
     : homeMain();
   const nodes = [header(), main];
   const nav = dockNav();
