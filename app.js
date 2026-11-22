@@ -24,16 +24,27 @@ const FAV_KEY = 'maxai.fav';
 const TEXT_IDS = new Set(['edit-text', 'meme', 'dub', 'music']);
 const PAGES = new Set(['profile', 'favorites', 'text', 'trends', 'school', 'knowledge']);
 const MENU = [
-  ['profile', 'Я', 'Как к тебе обращаться'],
-  ['favorites', 'Любимое', 'Что ты отложил'],
-  ['text', 'Тексты', 'Черновик и слова'],
-  ['studio/image', 'Картинки', 'Кадр по описанию'],
-  ['studio/video', 'Ролики', 'Сначала картинка'],
-  ['studio/audio', 'Звук', 'Песня или эффект'],
-  ['trends', 'Старт', 'С чего проще начать'],
-  ['school', 'Уроки', 'Четыре короткие заметки'],
-  ['knowledge', 'Подсказки', 'Что где лежит'],
+  ['profile', 'Профиль', 'Имя на этом устройстве'],
+  ['favorites', 'Избранное', 'Отмеченные инструменты'],
+  ['text', 'Текстовые ИИ', 'Слова, подписи и черновик'],
+  ['studio/image', 'Генерация Изображений', 'Кадр по описанию'],
+  ['studio/video', 'Генерация Видео', 'Ролик по кадру'],
+  ['studio/audio', 'Генерация Аудио', 'Звук и музыка'],
+  ['trends', 'Тренды', 'С чего начать в каталоге'],
+  ['school', 'Школа ИИ', 'Короткие уроки'],
+  ['knowledge', 'База знаний', 'Что делает каждый раздел'],
 ];
+const ICONS = {
+  profile: 'M6 2h4v3H6zM4 6h8v2H4zM5 9h6v5H5z',
+  favorites: 'M8 1l2 4h4l-3 3 1 5-4-2-4 2 1-5-3-3h4z',
+  text: 'M2 3h12v2H2zM2 7h12v2H2zM2 11h8v2H2z',
+  image: 'M2 3h12v10H2zM4 11l2-3 2 2 2-2 2 3',
+  video: 'M2 4h8v8H2zM11 6l3-2v8l-3-2z',
+  audio: 'M3 8h2v5H3zM7 4h2v9H7zM11 6h2v7h-2z',
+  trends: 'M2 12l4-4 2 2 5-6M10 4h4v4',
+  school: 'M2 6l6-3 6 3-6 3zM4 8v3l4 2 4-2V8',
+  knowledge: 'M2 2h5v12H2zM9 2h5v12H9z',
+};
 const BANNER = {
   profile: ['Я', 'Напиши, как к тебе обращаться. Имя останется только на этом телефоне. Ниже два одинаковых блока: поле с именем и заметка.'],
   favorites: ['Любимое', 'Сюда падает всё, что ты сам отложил. Открой инструмент и нажми «В избранное». Карточки стоят по две в ряд.'],
@@ -84,17 +95,37 @@ function eggMark() {
   node.setAttribute('aria-hidden', 'true');
   return node;
 }
-function menuRow(hash, title, about, pixel) {
+function pixelIcon(kind) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('class', 'pixel');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', ICONS[kind] || ICONS.knowledge);
+  svg.append(path);
+  return svg;
+}
+function filmIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('class', 'film-mark');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('fill', 'currentColor');
+  path.setAttribute('d', 'M0 1h2v2H0zM0 5h2v2H0zM0 9h2v2H0zM0 13h2v2H0zM14 1h2v2h-2zM14 5h2v2h-2zM14 9h2v2h-2zM14 13h2v2h-2zM3 0h10v2H3zM3 14h10v2H3zM3 2h2v12H3zM11 2h2v12h-2zM6 4h4v3H6zM6 9h4v3H6z');
+  svg.append(path);
+  return svg;
+}
+function menuRow(hash, title, about, icon) {
   const button = el('button', 'menu-row');
   button.type = 'button';
   const text = el('span');
   const name = el('b');
-  if (pixel) name.className = 'pixel-title';
   name.textContent = title;
   const line = el('small');
   line.textContent = about;
   text.append(name, line);
-  button.append(eggMark(), text);
+  button.append(icon ? pixelIcon(icon) : eggMark(), text);
   const back = sectionReturn;
   button.addEventListener('click', () => {
     query = '';
@@ -175,13 +206,13 @@ function header() {
   tag.textContent = 'ИИ-студия прямо в MAX';
   words.append(heading, tag);
   const logo = el('img', 'brand-logo');
-  logo.src = 'assets/chick.png';
+  logo.src = 'assets/chick-hero.png';
   logo.alt = '';
   logo.setAttribute('aria-hidden', 'true');
   title.append(words, logo);
   const film = el('button', 'icon film-slot');
   film.type = 'button';
-  film.textContent = '▣';
+  film.append(filmIcon());
   film.setAttribute('aria-label', 'Плёнка');
   film.addEventListener('click', () => go('#/film'));
   bar.append(title, film);
@@ -247,7 +278,8 @@ function homeMain() {
   const stage = el('div', 'stage');
   const menu = el('nav', 'menu');
   menu.setAttribute('aria-label', 'Главное меню');
-  for (const [hash, title, about] of MENU) menu.append(menuRow(hash, title, about, true));
+  const icons = { profile: 'profile', favorites: 'favorites', text: 'text', 'studio/image': 'image', 'studio/video': 'video', 'studio/audio': 'audio', trends: 'trends', school: 'school', knowledge: 'knowledge' };
+  for (const [hash, title, about] of MENU) menu.append(menuRow(hash, title, about, icons[hash]));
   const foot = el('p', 'foot');
   foot.append(document.createTextNode('Каталог: '));
   const link = el('a');
